@@ -49,11 +49,15 @@ metadata {
         capability "PowerSource"
         capability "PresenceSensor"
 
+        attribute "currentAuxDroop", "number"
+        attribute "currentAuxTimer", "number"
         attribute "currentSensorCal", "number"
         attribute "currentHumidityCal", "number"
         attribute "idleBrightness", "number"
         attribute "thermostatFanOperatingState", "string"
        
+        command "AuxDroop", [[name:"aux droop",type:"ENUM", description:"Temperature offset to enable aux", constraints:["0","2","3","4","5","6","7","8","9","10","11","12","13","14","15"]]]
+        command "AuxTimer", [[name:"aux timer",type:"ENUM", description:"Time until aux droop is enabled", constraints:["0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15"]]]
         command "SensorCal", [[name:"calibration",type:"ENUM", description:"Number of degrees to add/subtract from thermostat sensor", constraints:["-3", "-2", "-1", "0", "1", "2", "3"]]]
         command "HumidityCal", [[name:"humidity calibration",type:"ENUM", description:"Percent to add/subtract from humidity sensor", constraints:["-12","-11","-10","-9","-8","-7","-6","-5","-4","-3", "-2", "-1", "0", "1", "2", "3","4","5","6","7","8","9","10","11","12"]]]
         command "IdleBrightness", [[name:"brightness",type:"ENUM", description:"Set idle brightness", constraints:["0", "1", "2", "3", "4", "5"]]]
@@ -168,6 +172,20 @@ void updated() {
     if (logEnable) runIn(1800,logsOff)
     runConfigs()
     runEvery3Hours("syncClock")
+}
+
+void AuxDroop(value) {
+    if (logEnable) log.debug "AuxDroop($value)"
+    List<hubitat.zwave.Command> cmds=[]
+    cmds.addAll(configCmd(16,1,value))
+    sendToDevice(cmds)
+}
+
+void AuxTimer(value) {
+    if (logEnable) log.debug "AuxTimer($value)"
+    List<hubitat.zwave.Command> cmds=[]
+    cmds.addAll(configCmd(17,1,value))
+    sendToDevice(cmds)
 }
 
 void SensorCal(value) {
@@ -316,6 +334,12 @@ void zwaveEvent(hubitat.zwave.commands.configurationv1.ConfigurationReport cmd) 
         Map configParam=configParams[cmd.parameterNumber.toInteger()]
         if (scaledValue > 127) scaledValue = scaledValue - 256
         device.updateSetting(configParam.input.name, [value: "${scaledValue}", type: configParam.input.type])
+        if (cmd.parameterNumber==16) {
+            eventProcess(name: "currentAuxDroop", value: scaledValue)
+        }
+        if (cmd.parameterNumber==17) {
+            eventProcess(name: "currentAuxTimer", value: scaledValue)
+        }
         if (cmd.parameterNumber==42) {
             eventProcess(name: "currentSensorCal", value: scaledValue)
         }
