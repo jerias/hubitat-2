@@ -21,10 +21,11 @@ import java.text.SimpleDateFormat
  * 2022-10-03 thebearmay    v1.2.14 refresh to create temperature and humidity events regardless of deltas
  * 2022-10-11 thebearmay    v1.2.15 first run humidity and temperature error correction
  * 2022-12-15 thebearmay    v1.2.16 allow external humidity calibration
+ * 2022-12-24 thebearmay    v1.2.17 fixes for Thermostat Scheduler
  *
  */
 
-static String version()	{  return "1.2.16" }
+static String version()	{  return "1.2.17" }
 metadata {
     definition (name: "Advanced Honeywell T6 Pro Thermostat", 
                 namespace: "djdizzyd", 
@@ -59,7 +60,8 @@ metadata {
         command "syncClock"
         command "home"
         command "away"
-
+        command "initializeVars"
+        
         fingerprint  mfr:"0039", prod:"0011", deviceId:"0008", inClusters:"0x5E,0x85,0x86,0x59,0x31,0x80,0x81,0x70,0x5A,0x72,0x71,0x73,0x9F,0x44,0x45,0x40,0x42,0x43,0x6C,0x55", deviceJoinName: "Honeywell T6 PRO"
 
     }
@@ -147,8 +149,9 @@ void configure() {
 
 void initializeVars() {
     // first run only
-    sendEvent(name:"supportedThermostatModes", value: supportedThermostatModes.toString().replaceAll(/"/,""), isStateChange:true)
-    sendEvent(name:"supportedThermostatFanModes", value: supportedThermostatFanModes.toString().replaceAll(/"/,""), isStateChange:true)
+    sendEvent(name:"supportedThermostatModes", value: supportedThermostatModes.toString().replace('[','[\"').replace(', ','\", \"').replace(']','\"]'), isStateChange:true)
+    sendEvent(name:"supportedThermostatFanModes", value: supportedThermostatFanModes.toString().replace('[','[\"').replace(', ','\", \"').replace(']','\"]'), isStateChange:true)
+
     state.initialized=true
     runIn(15, refresh)
 }

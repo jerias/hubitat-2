@@ -22,6 +22,9 @@
  *    30Nov2022    thebearmay    add option to force Integer values, add mold attribute
  *    16Dec2022    thebearmay    handle mismatched return data elements
  *    22Dec2022    thebearmay    hub security 
+ *    15Jan2023    thebearmay    add descriptionText
+ *                               trap relayDeviceType
+ *    01Feb2023                  Add a delay before building the html
 */
 import java.text.SimpleDateFormat
 import groovy.json.JsonSlurper
@@ -29,7 +32,7 @@ import groovy.json.JsonSlurper
 #include thebearmay.templateProcessing
 
 @SuppressWarnings('unused')
-static String version() {return "0.0.14"}
+static String version() {return "0.0.18"}
 
 metadata {
     definition (
@@ -133,7 +136,8 @@ def configure() {
 }
 
 void updateAttr(String aKey, aValue, String aUnit = ""){
-    sendEvent(name:aKey, value:aValue, unit:aUnit)
+    desc = "${aKey} level of ${aValue} detected"
+    sendEvent(name:aKey, value:aValue, unit:aUnit, descriptionText:desc)
 }
 
 void refresh() {
@@ -190,10 +194,17 @@ void dataRefresh(retData){
                 unit=""
                 if(forceInt) it.value = it.value.toFloat().toInteger()
                 break
+            case("relayDeviceType")://ignore
+                unit=""
+                break
             default:
                 unit=""
-                if(forceInt && it.value.isNumber()) it.value = it.value.toFloat().toInteger()
-                //else log.warn "Return Data Mismatch, Key: ${it.key} Value: ${it.value}"
+                try{
+                    it.value = it.value.toFloat().toInteger()
+                } catch(e) { 
+                    log.warn "Return Data Mismatch, Key: ${it.key} Value: ${it.value} - value will be set to zero"
+                    it.value = 0
+                }
                 break
         }
         if((it.key != "temp" && unit != null) || it.key.startsWith('pm') || it.key == "mold") //unit will be null for any values not tracked
@@ -201,10 +212,12 @@ void dataRefresh(retData){
     }
     calcAbsHumidity()
     if(tileTemplate && tileTemplate != "No selection" && tileTemplate != "--No Selection--"){
-        tileHtml = genHtml(tileTemplate)
-        updateAttr("html","$tileHtml")
+        runIn(5, "buildHtml")          
     }
- 
+}
+void buildHtml(){
+    tileHtml = genHtml(tileTemplate)
+    updateAttr("html","$tileHtml") 
 }
 
 void calcAbsHumidity() {

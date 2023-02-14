@@ -22,6 +22,7 @@ import java.text.SimpleDateFormat
  * 2022-10-11 thebearmay    v1.2.15 first run humidity and temperature error correction
  * 2022-12-15 thebearmay    v1.2.16 allow external humidity calibration
  * 2022-12-24 thebearmay    v1.2.17 fixes for Thermostat Scheduler
+ * 2023-02-06 thebearmay    v1.2.18 set powerSource on battery report or power applied
  *
  */
 
@@ -220,7 +221,11 @@ void zwaveEvent(hubitat.zwave.commands.notificationv3.NotificationReport cmd) {
                 break
             case 1:
                 // Power has been applied
-                log.info "${device.displayName} Power has been applied"
+                evt.isStateChange=true
+                evt.name="powerSource"
+                evt.value="mains"
+                evt.descriptionText="${device.displayName} AC mains applied"                    
+                //log.info "${device.displayName} Power has been applied"
                 break
             case 2:
                 // AC mains disconnected
@@ -287,8 +292,10 @@ void zwaveEvent(hubitat.zwave.commands.notificationv3.NotificationReport cmd) {
                 // backup battery disconnected
                 break
             case 254:
-                // unknown event / state
+                log.info "unknown power management event / state - case 254"
                 break
+            default:
+                log.info "unknown power management event / state - case ${cmd.event}"
         }
     }
     if (evt.isStateChange) {
@@ -536,7 +543,11 @@ void zwaveEvent(hubitat.zwave.commands.associationv2.AssociationGroupingsReport 
 
 void zwaveEvent(hubitat.zwave.commands.batteryv1.BatteryReport cmd) {
     if (logEnable) log.debug "got battery report: ${cmd.batteryLevel}"
-    Map evt = [name: "battery", unit: "%"]
+    Map evt = [name: "powerSource", value: "battery"]
+    if(device.currentValue("powerSource") == null)
+        eventProcess(evt)
+    evt.name = "battery"
+    evt.unit = "%"
     if (cmd.batteryLevel == 0xFF) {
         evt.descriptionText = "${device.displayName} has a low battery"
         evt.value = "1"

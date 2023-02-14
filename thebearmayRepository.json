@@ -257,6 +257,39 @@
       "category":"Utility",
       "location":"https://raw.githubusercontent.com/thebearmay/hubitat/main/manifests/roomInfoManifest.json",
       "description":"Provides a JSON summary of all Rooms and their associated devices and images."
+    },
+    {
+      "id":"b2af0b32-74c4-473a-ac91-69b95a9d3307",
+      "name":"Hub Information Driver v3",
+      "category":"Utility",
+      "location":"https://raw.githubusercontent.com/thebearmay/hubitat/main/manifests/hubInfoV3Manifest.json",
+      "description":"Rewrite of the original Hub Information Driver.  Driver includes 40+ attributes related to the operation and general fitness of the hub.",
+      "tags":[
+        "Dashboards",
+        "Misc. Devices",
+        "Monitoring",
+        "Tools & Utilities"
+       ]
+    },
+    {
+      "id":"f75a7ab6-64b1-46b7-9c6c-662b0be9b015",
+      "name":"File Manager Backup & Restore",
+      "category":"Utility",
+      "location":"https://raw.githubusercontent.com/thebearmay/hubitat/main/manifests/fmBckResManifest.json",
+      "description":"Allows for the creation and restore of a compressed backup of all files contained in the Hub's local File Manager ",
+      "tags":[
+        "Tools & Utilities"
+       ]
+    },
+    {
+      "id":"8ca1acc6-888d-477f-8856-2ddef0f06a2c",
+      "name":"Power Outage Manager",
+      "category":"Utility",
+      "location":"https://raw.githubusercontent.com/thebearmay/hubitat/main/manifests/powOutMgrManifest.json",
+      "description":"Monitors devices with Power Source capability and initiates actions when the powerSource attribute switches from battery to mains indicating a power outage.  Can also initiate actions when power is restored.",
+      "tags":[
+        "Monitoring"
+       ]
     }
   ]
 }

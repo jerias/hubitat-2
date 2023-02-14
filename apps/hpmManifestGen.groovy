@@ -18,7 +18,7 @@
  *    23Nov2022    thebearmay    Fix Repository Entry
 */
 
-static String version()	{  return '1.0.1'  }
+static String version()	{  return '1.0.2'  }
 
 import java.text.SimpleDateFormat
 #include thebearmay.localFileMethods
@@ -308,7 +308,7 @@ void appButtonHandler(btn) {
             bText+="  {\n     \"id\":\"${GUID()}\",\n"
             bText+="     \"name\":\"$bName\",\n"
             bText+="     \"location\":\"$bLoc\",\n"
-            bText+="     \"required\":\"$bReq\"\n  }"
+            bText+="     \"required\":$bReq\n  }"
             if(state.bText != null) state.bText += bText
             else state.bText = bText
             state.newBundleReq = false
@@ -322,9 +322,9 @@ void appButtonHandler(btn) {
             aText+="  {\n     \"id\":\"${GUID()}\",\n"
             aText+="     \"name\":\"$aName\",\n"
             aText+="     \"location\":\"$aLoc\",\n"
-            aText+="     \"required\":\"$aReq\",\n"
-            aText+="     \"oauth\":\"$aOauth\",\n"
-            aText+="     \"primary\":\"$aPrimary\"\n  }"
+            aText+="     \"required\":$aReq,\n"
+            aText+="     \"oauth\":$aOauth,\n"
+            aText+="     \"primary\":$aPrimary\n  }"
             if(state.aText != null) state.aText += aText
             else state.aText = aText
             state.newAppReq = false
@@ -338,7 +338,7 @@ void appButtonHandler(btn) {
             dText+="  {\n     \"id\":\"${GUID()}\",\n"
             dText+="     \"name\":\"$dName\",\n"
             dText+="     \"location\":\"$dLoc\",\n"
-            dText+="     \"required\":\"$dReq\"\n  }"
+            dText+="     \"required\":$dReq\n  }"
             if(state.dText != null) state.dText += dText
             else state.dText = dText
             state.newDriverReq = false

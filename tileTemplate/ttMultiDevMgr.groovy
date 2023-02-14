@@ -14,9 +14,11 @@
  *    2022-08-30        thebearmay    add file list and template checking
  *    2022-09-05        thebearmay    add @room
  *    2022-09-18        thebearmay    handle template read error
+ *    2023-01-05        thebearmay    add a filter for template selection
+ *    2023-02-07        thebearmay    Allow the use of Hub Variables
 */
 
-static String version()	{  return '0.0.6'  }
+static String version()	{  return '0.1.0'  }
 
 
 definition (
@@ -28,6 +30,7 @@ definition (
 	importUrl:"https://raw.githubusercontent.com/thebearmay/hubitat/main/tileTemplate/ttMultiDevMgr.groovy",
     installOnOpen:  true,
 	oauth: 			false,
+    singleThreaded: true,
     iconUrl:        "",
     iconX2Url:      ""
 ) 
@@ -60,8 +63,20 @@ def mainPage(){
     dynamicPage (name: "mainPage", title: "", install: true, uninstall: true) {
       	if (app.getInstallationState() == 'COMPLETE') {   
 	    	section("Main") {
+                
                 state.validTemplate = false
-                List<String> fList = listFiles()
+                List<String> fList 
+                input "mustContain", "string", title:"Filter to Templates that contain", required:false, submitOnUpdate: true, width:4
+                input "applyFilter", "button", title: "Apply Filter"                
+                if(state.afPushed) {
+                    state.afPushed = false
+                }
+             
+                if(mustContain != null)
+                    fList = listFiles("$mustContain")
+                else
+                    fList = listFiles()
+                
                 input "templateName", "enum", title: "<b>Template to Process</b>", required: true, width:5, submitOnUpdate:true, options:fList
                 input "templateCheck", "button", title:"Check Template"
                 if(templateName != null && state?.tCheck == true) {
@@ -69,7 +84,10 @@ def mainPage(){
                     if (devList.size > 0){
                         devListE = []
                         devList.each {
-                            devListE.add("<a href='http://${location.hub.localIP}:8080/device/edit/$it' target='_blank'>$it</a>")                                     
+                            if("$it".isNumber())
+                                devListE.add("<a href='http://${location.hub.localIP}:8080/device/edit/$it' target='_blank'>$it</a>")
+                            else
+                                devListE.add("variable:$it")
                         }
                         state.validTemplate = true
                     } else devListE = 'No devices found <b>**Invalid Template**</b>'
@@ -84,6 +102,21 @@ def mainPage(){
                         subscribe(it, "altHtml", [filterEvents:true])
                     }
                     href "previewTemplate", title: "Template Preview", required: false
+                }
+                HashMap varMap = getAllGlobalVars()
+                List varListIn = []
+                
+                varMap.each {
+                    varListIn.add("$it.key")
+                }
+                input "varList", "enum", title: "Select variables to monitor:", options: varListIn.sort(), multiple: true, required: false, submitOnChange: true
+                if(varList != null) {
+                    removeAllInUseGlobalVar()
+                    varlist.each {
+                        var="variable:$it"
+                        subscribe(location,"$var", "altHtml")
+                        success = addInUseGlobalVar(it.toString())
+                    }                   
                 }
 
                 input "clearSettings", "button", title: "Clear previous settings"
@@ -139,7 +172,11 @@ List templateScan() {
                     vEnd = it.indexOf("%>")
 //                    log.debug "${it.indexOf(":")}"
                     if(it.indexOf(":") > -1 && it.indexOf(":") < vEnd){ //format of <%devId:attribute%>
-                        devList.add(it.substring(0,it.indexOf(":")).toLong())
+                        devId = it.substring(0,it.indexOf(":"))
+                        if(devId != "var")
+                            devList.add(devId.toLong())
+                        else
+                            devList.add(it.substring(it.indexOf(":"),vEnd))
                     }
                 }
             }
@@ -166,9 +203,12 @@ String altHtml(evt = "") {
                     vEnd = it.indexOf("%>")
                     if(it.indexOf(":") > -1 && it.indexOf(":") < vEnd){
 //                    if(it.indexOf(":") > -1){ //format of <%devId:attribute%>
-                        devId = it.substring(0,it.indexOf(":")).toLong()
-                        qryDevice.each{
-                            if(it.deviceId == devId) dev=it
+                        devId = it.substring(0,it.indexOf(":"))
+                        if(devId != "var") {
+                            devId = devId.toLong()
+                            qryDevice.each{
+                                if(it.deviceId == devId) dev=it
+                            }
                         }
                         vName = it.substring(it.indexOf(":")+1,it.indexOf('%>'))
                         //log.debug "$devId $vName"
@@ -183,6 +223,9 @@ String altHtml(evt = "") {
                         aVal = dev.properties.displayName
                     else if (vName == "@room" && dev != null)
                         aVal = dev.properties.roomName
+                    else if(devId=="var") {
+                        aVal = getGlobalVar("$vName").value
+                    }
                     else if(dev != null) {
                         aVal = dev.currentValue("$vName",true)
                         String attrUnit = dev.currentState("vName")?.unit
@@ -248,9 +291,8 @@ String readFile(fName){
 }
 
 @SuppressWarnings('unused')
-List<String> listFiles(){
+List<String> listFiles(filt = null){
     if(security) cookie = getCookie()
-    // Adapted from BptWorld's Community Post 89466/4
     if(debugEnabled) log.debug "Getting list of files"
     uri = "http://${location.hub.localIP}:8080/hub/fileManager/json";
     def params = [
@@ -266,7 +308,12 @@ List<String> listFiles(){
                 if(logEnable) log.debug "Found the files"
                 def json = resp.data
                 for (rec in json.files) {
-                    fileList << rec.name
+                    if(filt != null){
+                        if(rec.name.contains("$filt")){
+                            fileList << rec.name
+                        }
+                    } else
+                        fileList << rec.name
                 }
             } else {
                 //
@@ -312,6 +359,10 @@ def appButtonHandler(btn) {
             break
         case "templateCheck":
             state.tCheck = true
+            break
+        case "applyFilter":
+            state.afPushed = true
+            mainPage()
             break
         default: 
             log.error "Undefined button $btn pushed"

@@ -20,10 +20,11 @@ import java.text.SimpleDateFormat
  * 2022-10-02 thebearmay    v1.2.13 add thermostatFanOperatingState, replace sendAllTemps with deltaTempRpt and deltaHumRpt                    
  * 2022-10-03 thebearmay    v1.2.14 refresh to create temperature and humidity events regardless of deltas
  * 2022-10-11 thebearmay    v1.2.15 first run humidity and temperature error correction
+ * 2022-12-15 thebearmay    v1.2.16 allow external humidity calibration
  *
  */
 
-static String version()	{  return "1.2.15" }
+static String version()	{  return "1.2.16" }
 metadata {
     definition (name: "Advanced Honeywell T6 Pro Thermostat", 
                 namespace: "djdizzyd", 
@@ -48,10 +49,12 @@ metadata {
         capability "PresenceSensor"
 
         attribute "currentSensorCal", "number"
+        attribute "currentHumidityCal", "number"
         attribute "idleBrightness", "number"
         attribute "thermostatFanOperatingState", "string"
        
         command "SensorCal", [[name:"calibration",type:"ENUM", description:"Number of degrees to add/subtract from thermostat sensor", constraints:["-3", "-2", "-1", "0", "1", "2", "3"]]]
+        command "HumidityCal", [[name:"humidity calibration",type:"ENUM", description:"Percent to add/subtract from humidity sensor", constraints:["-12","-11","-10","-9","-8","-7","-6","-5","-4","-3", "-2", "-1", "0", "1", "2", "3","4","5","6","7","8","9","10","11","12"]]]
         command "IdleBrightness", [[name:"brightness",type:"ENUM", description:"Set idle brightness", constraints:["0", "1", "2", "3", "4", "5"]]]
         command "syncClock"
         command "home"
@@ -63,6 +66,7 @@ metadata {
     preferences {
         configParams.each { input it.value.input }
         input "logEnable", "bool", title: "Enable debug logging", defaultValue: false
+        input "infoEnable", "bool", title: "Enable info logging", defaultValue: false
 //		input "sendAllTemps", "bool", title: "Create Events for All Temperature and Humidity Readings", submitOnChange: true, defaultValue: false
         input "deltaTempRpt", "number", title: "Minimum Temperature Delta to Generate Event, O reports all readings", submitOnChange:true, defaultValue: 1
         input "deltaHumRpt", "number", title: "Minimum Humidity Delta to Generate Event, O reports all readings", submitOnChange:true, defaultValue: 1
@@ -125,7 +129,8 @@ metadata {
         39: [input: [name: "configParam39", type: "enum", title: "Idle Brightness", defaultValue: 0, options:[0:"0",1:"1",2:"2",3:"3",4:"4",5:"5"]], parameterSize: 1],
         40: [input: [name: "configParam40", type: "enum", title: "Clock Format", defaultValue: 0, options: [0:"12 hour", 1:"24 hour"]], parameterSize:1],
         41: [input: [name: "configParam41", type: "enum", title: "Daylight Savings", defaultValue:1, options:[0:"Off",1:"On"]], parameterSize: 1],
-        42: [input: [name: "configParam42", type: "enum", title: "Temperature Offset", defaultValue: 0, options:[(-3):"-3°F",(-2):"-2°F",(-1):"-1°F",0:"Off",1:"+1°F",2:"+2°F",3:"+3°F"]], parameterSize: 1]
+        42: [input: [name: "configParam42", type: "enum", title: "Temperature Offset", defaultValue: 0, options:[(-3):"-3°F",(-2):"-2°F",(-1):"-1°F",0:"Off",1:"+1°F",2:"+2°F",3:"+3°F"]], parameterSize: 1],
+        43: [input: [name: "configParam43", type: "enum", title: "Humidity Offset", defaultValue: 0, options:[(-12):"-12%",(-11):"-11%",(-10):"-10%",(-9):"-9%",(-8):"-8%",(-7):"-7%",(-6):"-6%",(-5):"-5%",(-4):"-4%",(-3):"-3%",(-2):"-2%",(-1):"-1%",0:"Off",1:"+1%",2:"+2%",3:"+3%",4:"+4%",5:"+5%",6:"+6%",7:"+7%",8:"+8%",9:"+9%",10:"+10%",11:"11%",12:"12%",]], parameterSize: 1]
 ]
 
 void logsOff(){
@@ -166,6 +171,13 @@ void SensorCal(value) {
     if (logEnable) log.debug "SensorCal($value)"
     List<hubitat.zwave.Command> cmds=[]
     cmds.addAll(configCmd(42,1,value))
+    sendToDevice(cmds)
+}
+
+void HumidityCal(value) {
+    if (logEnable) log.debug "HumidityCal($value)"
+    List<hubitat.zwave.Command> cmds=[]
+    cmds.addAll(configCmd(43,1,value))
     sendToDevice(cmds)
 }
 
@@ -307,6 +319,9 @@ void zwaveEvent(hubitat.zwave.commands.configurationv1.ConfigurationReport cmd) 
         if (cmd.parameterNumber==39) {
             eventProcess(name: "idleBrightness", value: scaledValue)
         }
+        if (cmd.parameterNumber==43) {
+            eventProcess(name: "currentHumidityCal", value: scaledValue)
+        }
     }
 }
 
@@ -391,7 +406,8 @@ void parse(String description) {
     hubitat.zwave.Command cmd = zwave.parse(description, CMD_CLASS_VERS)
     if (cmd) {
         zwaveEvent(cmd)
-    }
+    } else if(infoEnable)
+        log.info "Non-cmd received: $description"
 }
 
 void zwaveEvent(hubitat.zwave.commands.supervisionv1.SupervisionGet cmd) {
@@ -628,12 +644,14 @@ private void setSetpoint(setPointType, value) {
 
 void setHeatingSetpoint(degrees) {
     if (logEnable) log.debug "setHeatingSetpoint(${degrees}) called"
+    runIn(3,"refresh")
     setSetpoint(1,degrees)
     state.isDigital=true
 }
 
 void setCoolingSetpoint(degrees) {
     if (logEnable) log.debug "setCoolingSetpoint(${degrees}) called"
+    runIn(3,"refresh")
     setSetpoint(2,degrees)
     state.isDigital=true
 }
